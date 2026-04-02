@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: weather-cronjob
+spec:
+  schedule: "0 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: weather
+            image: ghcr.io/stefanregalia/ds5220-weather:latest
+            env:
+            - name: S3_BUCKET
+              value: "stefanregalia-ds5220-project2"
+          restartPolicy: Never
+      backoffLimit: 2
