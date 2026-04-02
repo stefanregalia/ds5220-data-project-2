@@ -146,7 +146,7 @@ def publish_plot(df):
         axes[2].set_ylabel("Precip (in)")
         axes[2].set_xlabel("Time (UTC)")
         axes[0].legend()
-
+        plt.setp(axes[2].xaxis.get_majorticklabels(), rotation=45, ha='right')
         plt.tight_layout()
         buf = BytesIO()
         plt.savefig(buf, format="png")
