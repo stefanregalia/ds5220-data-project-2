@@ -126,7 +126,8 @@ def publish_plot(df):
     """Generating a 3-panel time series plot and upload it to S3 as plot.png."""
     try:
         df["timestamp"] = pd.to_datetime(df["timestamp"])
-        df = df.sort_values("timestamp")
+	df = df.sort_values("timestamp")
+        plt.rcParams["date.autoformatter.hour"] = "%m-%d %H:%M"
 
         sns.set_theme(style="darkgrid")
         # Temperature, wind speed, precipitation subplots
@@ -138,10 +139,9 @@ def publish_plot(df):
             if sub.empty:
                 log.warning(f"No data for {loc}, skipping in plot")
                 continue
-            axes[0].plot(sub["timestamp"], sub["temp_f"],    label=loc)
-            axes[1].plot(sub["timestamp"], sub["wind_mph"],  label=loc)
-            axes[2].plot(sub["timestamp"], sub["precip_in"], label=loc)
-
+            axes[0].plot(sub["timestamp"], sub["temp_f"],    label=loc, marker="o", markersize=3)
+	    axes[1].plot(sub["timestamp"], sub["wind_mph"],  label=loc, marker="o", markersize=3)
+	    axes[2].plot(sub["timestamp"], sub["precip_in"], label=loc, marker="o", markersize=3)
         axes[0].set_ylabel("Temp (°F)")
         axes[1].set_ylabel("Wind (mph)")
         axes[2].set_ylabel("Precip (in)")
