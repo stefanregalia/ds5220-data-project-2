@@ -1,4 +1,3 @@
-# Importing dependencies
 import os
 import sys
 import logging
@@ -7,7 +6,7 @@ import boto3
 from boto3.dynamodb.conditions import Key
 from datetime import datetime, timezone
 import matplotlib
-matplotlib.use('Agg')  
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -47,9 +46,8 @@ except Exception as e:
     log.error(f"Failed to initialize AWS clients: {e}")
     sys.exit(1)
 
-# Fetching weather
 def fetch_weather(lat, lon):
-    """Calls the Open-Meteo API and return current weather for a lat/lon."""
+    """Calls the Open-Meteo API and returns current weather for a lat/lon."""
     url = (
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
@@ -78,7 +76,6 @@ def fetch_weather(lat, lon):
         log.error(f"Unexpected error fetching weather: {e}")
         return None
 
-# Saving to DynamoDB
 def save_to_dynamo(location_id, timestamp, weather):
     """Writes a single weather reading to DynamoDB."""
     try:
@@ -93,13 +90,11 @@ def save_to_dynamo(location_id, timestamp, weather):
     except Exception as e:
         log.error(f"Failed to save {location_id} to DynamoDB: {e}")
 
-# Loading data from DynamoDB
 def load_all_data():
-    """Queries all historical records for every location and return a DataFrame."""
+    """Queries all historical records for every location and returns a DataFrame."""
     rows = []
     for loc in LOCATIONS:
         try:
-            # Querying using the location_id partition key to get all records for that location
             resp = table.query(
                 KeyConditionExpression=Key("location_id").eq(loc)
             )
@@ -114,23 +109,19 @@ def load_all_data():
             log.info(f"Loaded {len(resp['Items'])} records for {loc}")
         except Exception as e:
             log.error(f"Failed to query DynamoDB for {loc}: {e}")
-
     if not rows:
         log.warning("No data loaded from DynamoDB. Skipping plot and CSV")
         return None
-
     return pd.DataFrame(rows)
 
-# Publishing plot to S3
 def publish_plot(df):
-    """Generating a 3-panel time series plot and upload it to S3 as plot.png."""
+    """Generates a 3-panel time series plot and uploads it to S3 as plot.png."""
     try:
         df["timestamp"] = pd.to_datetime(df["timestamp"])
-	df = df.sort_values("timestamp")
+        df = df.sort_values("timestamp")
         plt.rcParams["date.autoformatter.hour"] = "%m-%d %H:%M"
 
         sns.set_theme(style="darkgrid")
-        # Temperature, wind speed, precipitation subplots
         fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
         fig.suptitle("East Coast Weather Tracker", fontsize=16)
 
@@ -140,8 +131,9 @@ def publish_plot(df):
                 log.warning(f"No data for {loc}, skipping in plot")
                 continue
             axes[0].plot(sub["timestamp"], sub["temp_f"],    label=loc, marker="o", markersize=3)
-	    axes[1].plot(sub["timestamp"], sub["wind_mph"],  label=loc, marker="o", markersize=3)
-	    axes[2].plot(sub["timestamp"], sub["precip_in"], label=loc, marker="o", markersize=3)
+            axes[1].plot(sub["timestamp"], sub["wind_mph"],  label=loc, marker="o", markersize=3)
+            axes[2].plot(sub["timestamp"], sub["precip_in"], label=loc, marker="o", markersize=3)
+
         axes[0].set_ylabel("Temp (°F)")
         axes[1].set_ylabel("Wind (mph)")
         axes[2].set_ylabel("Precip (in)")
@@ -149,8 +141,6 @@ def publish_plot(df):
         axes[0].legend()
 
         plt.tight_layout()
-
-        # Writing plot to an in-memory buffer and uploading to S3
         buf = BytesIO()
         plt.savefig(buf, format="png")
         buf.seek(0)
@@ -160,12 +150,11 @@ def publish_plot(df):
             Body=buf,
             ContentType="image/png"
         )
-        plt.close() 
+        plt.close()
         log.info("Published plot.png to S3")
     except Exception as e:
         log.error(f"Failed to publish plot: {e}")
 
-# Publishing CSV to S3
 def publish_csv(df):
     """Uploads the full dataset as data.csv to S3."""
     try:
@@ -180,25 +169,19 @@ def publish_csv(df):
     except Exception as e:
         log.error(f"Failed to publish CSV: {e}")
 
-# Main function to orchestrate the workflow
 def main():
     log.info("Starting weather collection run")
-
-    # Using a single timestamp for all locations in this run for consistency
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     log.info(f"Run timestamp: {timestamp}")
 
-    # Collecting and storing weather for each city
     success_count = 0
     for location_id, coords in LOCATIONS.items():
         log.info(f"Fetching weather for {location_id}")
         weather = fetch_weather(coords["lat"], coords["lon"])
-
         if weather is None:
             log.warning(f"Skipping {location_id} due to fetch failure")
             continue
-
-        log.info(f"{location_id} | temp={weather['temp_f']}°F | wind={weather['wind_mph']}mph | precip={weather['precip_in']}in")
+        log.info(f"{location_id} | temp={weather['temp_f']}F | wind={weather['wind_mph']}mph | precip={weather['precip_in']}in")
         save_to_dynamo(location_id, timestamp, weather)
         success_count += 1
 
@@ -208,7 +191,6 @@ def main():
         log.error("No data collected, skipping plot and CSV generation")
         sys.exit(1)
 
-    # Loading all historical data and publishing updated plot and CSV
     df = load_all_data()
     if df is not None:
         publish_plot(df)
@@ -218,4 +200,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
