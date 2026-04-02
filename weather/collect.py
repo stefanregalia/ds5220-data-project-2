@@ -46,35 +46,42 @@ except Exception as e:
     log.error(f"Failed to initialize AWS clients: {e}")
     sys.exit(1)
 
-def fetch_weather(lat, lon):
-    """Calls the Open-Meteo API and returns current weather for a lat/lon."""
+def fetch_weather(lat, lon, retries=3, delay=5):
+    """Calls the Open-Meteo API and returns current weather for a lat/lon.
+    Retries up to 3 times with a 5 second delay on failure."""
     url = (
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
         f"&current=temperature_2m,wind_speed_10m,precipitation"
         f"&temperature_unit=fahrenheit&wind_speed_unit=mph"
     )
-    try:
-        r = requests.get(url, timeout=10)
-        r.raise_for_status()
-        data = r.json()["current"]
-        return {
-            "temp_f":    data["temperature_2m"],
-            "wind_mph":  data["wind_speed_10m"],
-            "precip_in": data["precipitation"],
-        }
-    except requests.exceptions.Timeout:
-        log.error(f"Timeout fetching weather for lat={lat}, lon={lon}")
-        return None
-    except requests.exceptions.HTTPError as e:
-        log.error(f"HTTP error fetching weather: {e}")
-        return None
-    except (KeyError, ValueError) as e:
-        log.error(f"Unexpected API response format: {e}")
-        return None
-    except Exception as e:
-        log.error(f"Unexpected error fetching weather: {e}")
-        return None
+    for attempt in range(1, retries + 1):
+        try:
+            r = requests.get(url, timeout=10)
+            r.raise_for_status()
+            data = r.json()["current"]
+            return {
+                "temp_f":    data["temperature_2m"],
+                "wind_mph":  data["wind_speed_10m"],
+                "precip_in": data["precipitation"],
+            }
+        except requests.exceptions.Timeout:
+            log.warning(f"Attempt {attempt}/{retries} timed out for lat={lat}, lon={lon}")
+        except requests.exceptions.HTTPError as e:
+            log.warning(f"Attempt {attempt}/{retries} HTTP error: {e}")
+        except (KeyError, ValueError) as e:
+            log.error(f"Unexpected API response format: {e}")
+            return None
+        except Exception as e:
+            log.warning(f"Attempt {attempt}/{retries} failed: {e}")
+        
+        if attempt < retries:
+            log.info(f"Retrying in {delay} seconds...")
+            import time
+            time.sleep(delay)
+
+    log.error(f"All {retries} attempts failed for lat={lat}, lon={lon}")
+    return None
 
 def save_to_dynamo(location_id, timestamp, weather):
     """Writes a single weather reading to DynamoDB."""
