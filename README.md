@@ -1,12 +1,14 @@
 # DS5220 Data Project 2 - Weather Tracking
 
-Used the forked repo as Professor Magee's template. Therefore, the ISS project example instructions and folders are in this repository as well. 
+Used the forked repo as Professor Magee's template. Therefore, the ISS project example instructions and folders are in this repository as well.
 
 **Data Source**: The Open-Meteo Weather Forecast API. This data source contains many weather variables that update hourly and are fetched without an API key. It can be accessed at https://open-meteo.com/en/docs 
 
 **Description of the scheduling process**: Every hour, a Kubernets CronJob creates a container from the Docker image on GitHub. The container runs the collect.py script to fetch temperature (Fahrenheit), wind speed (mph), and precipitation (inches) variables for 3 east coast cities in the same time zone: New York, Washington D.C., and Miami. Each variable is read into a DynamoDB table called weather-tracking, and the script then queries DynamoDB for the records for matplotlib and seaborn plotting purposes. This creates 3 separate time series line plots that are uploaded to a public S3 static website.
 
 **Output data and plot description**: From the plot, over the 72 hours, New York consistently had the lowest temperature in degrees Fahrenheit, while Miami had the greatest temperature for the majority of the time, with Washington D.C. occasionally being hotter. There were no patterns regarding wind speed for these three major cities, as they each had greater wind speeds than the others at some point in these 72 hours. Regarding precipitation, New York was the only city that experienced rainfall during these 72 hours, shown by one massive spike on April 3rd. Miami and Washington D.c, did not experience any precipitation, so their lines remained at 0. 
+
+One note: The first few measurements in the plot are closer together as they were not hourly. They were manual executions to ensure the CronJob worked properly.
 
 Create, schedule, and run a containerized data pipeline in Kubernetes.
 
